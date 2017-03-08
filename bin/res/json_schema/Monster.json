@@ -1,0 +1,34 @@
+{
+    "title": "Monster Schema",
+    "type": "array",
+    "items": {
+        "type": "object",
+        "properties": {
+            "ID": {
+                "type": "integer",
+                "minimum": 0
+	        },
+            "Name": {
+                "type": "string"
+            },
+            "Hp": {
+                "type": "integer"
+            },
+            "Skill": {
+                "type": "object",
+                "properties": {
+                    "ID": {
+                        "type": "integer",
+                        "minimum": 0
+                    },
+                    "Name": {
+                        "type": "string"
+                    },
+                    "Power": {
+                        "type": "integer"
+                    }
+                }
+            }
+        }
+    }
+}

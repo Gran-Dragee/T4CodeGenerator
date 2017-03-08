@@ -1,0 +1,146 @@
+﻿<#@ template language="C#" #>
+<#@ import namespace="System.Linq" #>
+<#@ import namespace="System.Collections.Generic" #>
+<#@ parameter name="ClassName" type="System.String" #>
+<#@ parameter name="Json" type="System.Collections.Generic.Dictionary<string, object>" #>
+// automatically generated, do not modify
+
+using System;
+using System.Collections.Generic;
+using System.Linq;
+
+namespace SchemaClass
+{
+<#= Output(ClassName, Json) #>
+}
+<#+
+public class SchemaClass
+{
+    private List<string> fieldList = new List<string>();
+
+    public string Name {
+        get;
+        private set;
+    }
+
+    public SchemaClass(string name)
+    {
+        this.Name = name;
+    }
+
+    public void AddField(string field)
+    {
+        fieldList.Add(field);
+    }
+
+    public override string ToString()
+    {
+        var output = "    public partial class " + this.Name + "\n";
+        output    += "    {\n";
+        output    += "        public " + this.Name + "()\n";
+        output    += "        {\n";
+        output    += "        }\n\n";
+        foreach (var field in fieldList) {
+            output += "        " + field + "\n";
+        }
+        output    += "    }";
+        return output;
+    }
+}
+
+private static string Output(string className, Dictionary<string, object> json)
+{
+    var schemaClassList = new List<SchemaClass>();
+    var rootSchemaClass = new SchemaClass(className + "Root");
+    schemaClassList.Add(rootSchemaClass);
+    Search(className, json, rootSchemaClass, className, schemaClassList);
+
+    var output = string.Empty;
+    for (var i = 0; i < schemaClassList.Count; i++) {
+        output += schemaClassList[i].ToString();
+        if (i + 1 != schemaClassList.Count) {
+            output += "\n\n";
+        }
+    }
+    return output;
+}
+
+private static void Search(string name, Dictionary<string, object> dict, SchemaClass schemaClass, string className, List<SchemaClass> schemaClassList)
+{
+    if (dict.ContainsKey("type")) {
+        if (dict["type"].ToString() == "object") {
+            Search(name, dict["properties"] as Dictionary<string, object>, schemaClass, className, schemaClassList);
+        } else if (dict["type"].ToString() == "array") {
+            schemaClass.AddField(string.Format("public {0}[] _{0} {{get; set;}}", name));
+
+            var nextFbsTable = new SchemaClass(name);
+            schemaClassList.Add(nextFbsTable);
+            Search(name, dict["items"] as Dictionary<string, object>, nextFbsTable, className, schemaClassList);
+        }
+        return;
+    }
+
+    foreach (var key in dict.Keys) {
+        if ((dict[key] is Dictionary<string, object>) == false) {
+            continue;
+        }
+
+        var innerDict = dict[key] as Dictionary<string, object>;
+        if (!innerDict.ContainsKey("type")) {
+            continue;
+        }
+
+        if (innerDict["type"].ToString() == "object") {
+            schemaClass.AddField(string.Format("public {0} _{0} {{get; set;}}", key));
+
+            var nextFbsTable = new SchemaClass(key);
+            schemaClassList.Add(nextFbsTable);
+            Search(key, innerDict["properties"] as Dictionary<string, object>, nextFbsTable, className, schemaClassList);
+        } else if (innerDict["type"].ToString() == "array") {
+            var arrayType = (innerDict["items"] as Dictionary<string, object>)["type"].ToString();
+            if (arrayType == "object") {
+                schemaClass.AddField(string.Format("public {0}[] _{0 {{get; set;}}", key));
+
+                var nextFbsTable = new SchemaClass(key);
+                schemaClassList.Add(nextFbsTable);
+                Search(key, (innerDict["items"] as Dictionary<string, object>)["properties"] as Dictionary<string, object>, nextFbsTable, className, schemaClassList);
+            } else {
+                schemaClass.AddField(GetArrayFieldStr(key, (innerDict["items"] as Dictionary<string, object>)));
+            }
+        } else {
+            schemaClass.AddField(GetFieldStr(key, innerDict));
+        }
+    }
+}
+
+private static string GetFieldStr(string fieldName, Dictionary<string, object> dict)
+{
+    return string.Format("public {0} {1} {{get; set;}}", GetCsType(dict), fieldName);
+}
+
+private static string GetArrayFieldStr(string fieldName, Dictionary<string, object> dict)
+{
+    return string.Format("public {0}[] {1} {{get; set;}}", GetCsType(dict), fieldName);
+}
+
+private static string GetCsType(Dictionary<string, object> dict)
+{
+    if (dict["type"].ToString() == "integer") {
+        var isMinimum = dict.ContainsKey("minimum");
+        if (isMinimum) {
+            return int.Parse(dict["minimum"].ToString()) >= 0 ? "uint" : "int";
+        }
+        else {
+            return "int";
+        }
+    } else if (dict["type"].ToString() == "string") {
+        return "string";
+    } else if (dict["type"].ToString() == "number") {
+        return "float";
+    } else if (dict["type"].ToString() == "boolean") {
+        return "bool";
+    } else {
+        throw new System.Exception("No supprted type. " + dict["type"].ToString());
+    }
+}
+#>

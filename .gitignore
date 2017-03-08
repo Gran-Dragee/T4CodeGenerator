@@ -1,0 +1,6 @@
+*.userprefs
+*.mdb
+.DS_Store
+obj/
+Properties/
+bin/output
